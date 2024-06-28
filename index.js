@@ -15,6 +15,13 @@ app.post("/webhooks/orders/create", (req, res) => {
   res.send("Order received");
 });
 
+app.post("/webhooks/draftOrders/create", (req, res) => {
+
+//   console.log(req)
+  console.log(req.body);
+  res.send("Order received");
+});
+
 
 
 app.listen(3000, () => console.log("Server ready on port 3000."));
