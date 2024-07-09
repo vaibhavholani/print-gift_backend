@@ -5,8 +5,8 @@ import { axiosClients } from '../shopifyClients.js';
 export const sendCustomPostRequest = async (store, endpoint, data) => {
 
     const client = axios.create({
-        baseURL: axiosClients[store].base_url,
-        headers: axiosClients[store].headers
+        baseURL: axiosClients[store.toLowerCase()].base_url,
+        headers: axiosClients[store.toLowerCase()].headers
     });
 
     // Ensure data is stringified
