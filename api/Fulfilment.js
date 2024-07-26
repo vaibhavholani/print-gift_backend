@@ -13,7 +13,8 @@ export const getFullfillmentOrders = async (store, orderId) => {
   const fulfillment_orders = (await response.json()).fulfillment_orders;
 
   // Filter out fulfillment orders that are not closed or fulfilled
-  const filtered_fulfillment_orders = fulfillment_orders.filter(
+  
+  const filtered_fulfillment_orders = fulfillment_orders?.filter(
     (fulfillment_order) =>
       fulfillment_order.status !== "closed" &&
       fulfillment_order.status !== "fulfilled"

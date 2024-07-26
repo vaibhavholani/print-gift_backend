@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { getOrder, cancelOrder } from "./api/Order.js";
+import { getOrders, cancelOrder, getOrderById } from "./api/Order.js";
 import { fulfillOrder, markOrderAsReadyForPickup } from "./api/Fulfilment.js";
 
 const app = express();
@@ -21,18 +21,30 @@ app.post("/webhooks/draftOrders/create", (req, res) => {
   res.send("Order received");
 });
 
-app.get("/api/order", async (req, res) => {
-  const { store } = req.query;
+app.get("/api/orders", async (req, res) => {
+  const { store, num, cursor} = req.query;
   if (!store) {
     return res.status(400).send("Store parameter is required");
   }
 
   try {
-    const orders = await getOrder(store);
+    const orders = await getOrders(store, num, cursor);
     res.json(orders);
   } catch (error) {
     console.error("Error fetching orders:", error);
     res.json([]);
+  }
+});
+
+app.get('/api/order/:orderId', async (req, res) => {
+  const { orderId } = req.params;
+  const { store } = req.query;
+
+  try {
+    const order = await getOrderById(store, orderId);
+    res.json(order);
+  } catch (error) {
+    res.status(500).send(error.message);
   }
 });
 

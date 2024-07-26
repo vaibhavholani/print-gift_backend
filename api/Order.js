@@ -5,36 +5,52 @@ import {
 import { sendCustomPostRequest } from "./Utils.js";
 import { getFullfillmentOrders } from "./Fulfilment.js";
 
-export const getOrder = async (store) => {
-  const shopify = shopifyMonieClients[store.toLowerCase()];
-  if (!shopify) {
-    throw new Error(`No Shopify client configured for store: ${store}`);
+export const getOrders = async (store, num, prevCursor) => {
+  const orderRequest = {
+    query: `{
+  orders(first: ${num}, reverse: true ${
+      prevCursor ? `, after: "${prevCursor}"` : ""
+    }) {
+    nodes {
+      id
+      legacyResourceId
+      name
+      createdAt
+      customer {
+        displayName
+      }
+      totalPrice
+      cancelledAt
+      displayFinancialStatus
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
   }
+}`,
+  };
 
-  let response = await shopify.order.list({
-    limit: 5,
-    fields: [
-      "id",
-      "name",
-      "created_at",
-      "customer",
-      "total_price",
-      "fulfillment_status",
-      "financial_status",
-      "cancelled_at",
-    ],
-    status: "any",
-  });
+  const response = await sendCustomPostRequest(
+    store,
+    "admin/api/2024-07/graphql.json",
+    orderRequest
+  );
+
+  let orders = response.data.orders;
+
 
   // set the fulfillment status of the order
-  response = response.map(async (order) => {
+  orders.nodes = orders.nodes.map(async (order) => {
+
+    order.id = order.legacyResourceId;
     const orderId = order.id;
     const fulfillmentOrders = await getFullfillmentOrders(store, orderId);
 
     let status = "fulfilled";
     let inProgress = false;
     let open = false;
-    fulfillmentOrders.forEach((fulfillmentOrder) => {
+    fulfillmentOrders?.forEach((fulfillmentOrder) => {
       if (fulfillmentOrder.status === "open") {
         open = true;
       } else if (fulfillmentOrder.status === "in_progress") {
@@ -46,12 +62,45 @@ export const getOrder = async (store) => {
     } else if (inProgress) {
       status = "in_progress";
     }
-    order.fulfillment_status = status;
+    order.displayFulfillmentStatus = status;
     return order;
   });
 
-  const filterResponses = await Promise.all(response);
-  return filterResponses;
+
+  orders.nodes = await Promise.all(orders.nodes);
+  return orders;
+};
+
+export const getOrderById = async (store, orderId) => {
+  const shopify = shopifyMonieClients[store.toLowerCase()];
+  if (!shopify) {
+    throw new Error(`No Shopify client configured for store: ${store}`);
+  }
+
+  const response = await shopify.order.get(orderId);
+  const fulfillmentOrders = await getFullfillmentOrders(store, orderId);
+  response.fulfillment_orders = fulfillmentOrders;
+
+  // set the fulfillment status of the order
+  let status = "fulfilled";
+  let inProgress = false;
+  let open = false;
+  fulfillmentOrders.forEach((fulfillmentOrder) => {
+    if (fulfillmentOrder.status === "open") {
+      open = true;
+    } else if (fulfillmentOrder.status === "in_progress") {
+      inProgress = true;
+    }
+  });
+  if (open) {
+    status = "unfulfilled";
+  } else if (inProgress) {
+    status = "in_progress";
+  }
+  response.fulfillment_status = status;
+
+  // save this response into a json file
+  return response;
 };
 
 export const cancelOrder = async (store, orderId) => {
@@ -118,10 +167,13 @@ export const cancelOrder = async (store, orderId) => {
 //   }
 // };
 
-console.log(await getOrder("downtown"))
+// console.log(await getOrder("downtown"))
 
 // await print all orders
-// const orders = await getOrder("downtown");
-// orders.forEach(async (order) => {
-//   console.log(await order);
+// const orders = await getOrders("downtown", 2);
+
+// orders.nodes.forEach(async (order) => {
+//   console.log(order);
 // });
+
+// console.log(orders.pageInfo)
