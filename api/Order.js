@@ -3,7 +3,7 @@ import {
   shopifyOfficialClients,
 } from "../shopifyClients.js";
 import { sendCustomPostRequest } from "./Utils.js";
-import { getFullfillmentOrders } from "./Fulfilment.js";
+import { getFullfillmentOrders, addFulfillmentOrders } from "./Fulfilment.js";
 
 export const getOrders = async (store, num, prevCursor) => {
   const orderRequest = {
@@ -39,33 +39,10 @@ export const getOrders = async (store, num, prevCursor) => {
 
   let orders = response.data.orders;
 
-
   // set the fulfillment status of the order
   orders.nodes = orders.nodes.map(async (order) => {
-
-    order.id = order.legacyResourceId;
-    const orderId = order.id;
-    const fulfillmentOrders = await getFullfillmentOrders(store, orderId);
-
-    let status = "fulfilled";
-    let inProgress = false;
-    let open = false;
-    fulfillmentOrders?.forEach((fulfillmentOrder) => {
-      if (fulfillmentOrder.status === "open") {
-        open = true;
-      } else if (fulfillmentOrder.status === "in_progress") {
-        inProgress = true;
-      }
-    });
-    if (open) {
-      status = "unfulfilled";
-    } else if (inProgress) {
-      status = "in_progress";
-    }
-    order.displayFulfillmentStatus = status;
-    return order;
+    return await addFulfillmentOrders(store, order);
   });
-
 
   orders.nodes = await Promise.all(orders.nodes);
   return orders;
@@ -112,6 +89,53 @@ export const cancelOrder = async (store, orderId) => {
   const response = await shopify.order.cancel(orderId);
 
   return response;
+};
+
+export const getUpdatedOrders = async (store) => {
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+  const offset = -5; // Change to -5 for Standard Time if not during Daylight Saving Time
+  thirtyMinutesAgo.setHours(thirtyMinutesAgo.getHours() + offset);
+
+  const offsetTime = thirtyMinutesAgo.toISOString();
+
+  const updateOrderRequest = {
+    query: `query { 
+        orders(first: 10, reverse: true, query: "updated_at:${offsetTime}") 
+        { nodes 
+         { 
+          id
+          legacyResourceId
+          name
+          createdAt
+          customer {
+            displayName
+          }
+          totalPrice
+          cancelledAt
+          displayFinancialStatus 
+          updatedAt 
+              } 
+            
+          } 
+        }`,
+  };
+
+  const response = await sendCustomPostRequest(
+    store,
+    "admin/api/2024-07/graphql.json",
+    updateOrderRequest
+  );
+
+  let orders = response.data.orders;
+
+  // set the fulfillment status of the order
+  orders.nodes = orders.nodes.map(async (order) => {
+    return await addFulfillmentOrders(store, order);
+  });
+
+  orders.nodes = await Promise.all(orders.nodes);
+
+  return orders;
 };
 
 // export const refundOrder = async (store, orderId) => {
@@ -170,10 +194,14 @@ export const cancelOrder = async (store, orderId) => {
 // console.log(await getOrder("downtown"))
 
 // await print all orders
-// const orders = await getOrders("downtown", 2);
+// const orders = await getOrders("downtown", 1);
 
+// console.log(orders.pageInfo)
+
+// get all the updated orders
+// const orders = await getUpdatedOrders("downtown");
+
+// // PRINT THEM ORDERS
 // orders.nodes.forEach(async (order) => {
 //   console.log(order);
 // });
-
-// console.log(orders.pageInfo)

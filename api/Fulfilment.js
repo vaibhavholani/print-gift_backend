@@ -23,6 +23,31 @@ export const getFullfillmentOrders = async (store, orderId) => {
   return filtered_fulfillment_orders;
 };
 
+export const addFulfillmentOrders = async (store, order) => {
+  order.id = order.legacyResourceId;
+  const orderId = order.id;
+  const fulfillmentOrders = await getFullfillmentOrders(store, orderId);
+
+  let status = "fulfilled";
+  let inProgress = false;
+  let open = false;
+  fulfillmentOrders?.forEach((fulfillmentOrder) => {
+    if (fulfillmentOrder.status === "open") {
+      open = true;
+    } else if (fulfillmentOrder.status === "in_progress") {
+      inProgress = true;
+    }
+  });
+  if (open) {
+    status = "unfulfilled";
+  } else if (inProgress) {
+    status = "in_progress";
+  }
+  order.displayFulfillmentStatus = status;
+  
+  return order;
+}
+
 export async function fulfillOrder(store, orderId, notifyCustomer = false) {
   const fulfillment_orders = await getFullfillmentOrders(store, orderId);
 
