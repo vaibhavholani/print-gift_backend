@@ -205,3 +205,7 @@ export const getUpdatedOrders = async (store) => {
 // orders.nodes.forEach(async (order) => {
 //   console.log(order);
 // });
+
+
+
+// console.log(await getOrderById("downtown", 5627694088384));

@@ -6,6 +6,9 @@ import {
   getOrderById,
   getUpdatedOrders,
 } from "./api/Order.js";
+import {
+  getProductImage
+} from "./api/Product.js"
 import { fulfillOrder, markOrderAsReadyForPickup } from "./api/Fulfilment.js";
 
 const app = express();
@@ -110,5 +113,19 @@ app.post("/api/ready-for-pickup", async (req, res) => {
     res.status(500).send("Error marking order as ready for pickup");
   }
 });
+
+
+app.get("/api/product-image", async (req, res) => {
+  const { store, productId } = req.query;
+
+  try {
+    const productImage = await getProductImage(store, productId);
+    res.json(productImage);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+
 
 app.listen(3000, () => console.log("Server ready on port 3000."));
